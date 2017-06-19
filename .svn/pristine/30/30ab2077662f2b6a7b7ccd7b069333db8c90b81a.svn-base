@@ -1,0 +1,181 @@
+/*
+This is the main file for our Breathalizer program.
+*/
+
+#include "htc.h"
+#include "LCD.h"
+#include "BreathalizerDipHandler.h"
+#include "ADConverter.h"
+#include "Buzzer.h"
+#include "DigitalPOT.h"
+#include "Smoothing.h"
+
+// Osc = XT, Watchdog off, everthing else off or disabled
+__CONFIG( 0x3F39 );
+
+#define TEMP_CHANNEL	1
+#define ALCOHOL_CHANNEL	2
+
+// Temperature Constants
+#define CEL_TO_FAHR		1.8
+#define FAHR_OFFSET		32
+#define SENSOR_OFFSET	-2
+#define TMP_ADJ_BAC		-.01	// a value in linear adjustment of BAC
+#define TMP_SHIFT_BAC	1.2		// b value in linear adjustment of BAC
+
+#define RL1				0x03
+#define RL2				0x0D
+#define RL3				0x1A
+#define RL4				0x35
+#define RL5				0x83
+#define RL				RL1
+
+#define LCD_WIDTH		16
+#define _XTAL_FREQ      4000000
+
+void InitMain()
+{
+	nRBPU = 0;
+	InitLCD();
+	InitDip();
+	InitPOT();
+	InitBuzzer();
+}
+
+unsigned int RawADCToFahrenheit(unsigned int adcData)
+{
+	// 100 here is to store two "decimal places" in the int
+	unsigned int temp = adcData * 100 * 5 / 1023;
+    temp = temp + SENSOR_OFFSET;
+    temp = (unsigned int)(temp * CEL_TO_FAHR);
+    temp = temp + FAHR_OFFSET;
+	return temp;
+}
+
+unsigned int RawADCToCelsius(unsigned int adcData)
+{
+	unsigned int temp = adcData * 100 * 5 / 1023;
+    temp = temp  + SENSOR_OFFSET;
+	return temp;
+}
+
+void ClearString(char str[], BYTE length)
+{
+	for(BYTE i = 0; i < length; i++)
+	{
+		str[i] = ' ';
+	}	
+}
+
+void PrintData(unsigned int input, char dataStr[], BYTE decPlaces)
+{
+	SetCursor(1,0);
+	ClearString(dataStr, LCD_WIDTH);
+	if(decPlaces == 0)
+    	IntToString(input, dataStr);
+	else
+		DecimalToString(input, dataStr, decPlaces);
+    SendString(dataStr);
+}
+
+void ClearLineTwo()
+{
+	SetCursor(1, 0);
+	SendString("                ");	
+}
+
+unsigned int TempAdjustADC(unsigned int inputADC)
+{
+	unsigned int tempC = GetTemp();
+	return (inputADC * ((tempC * TMP_ADJ_BAC) + TMP_SHIFT_BAC);
+}
+
+const unsigned int BAC_ADC_COUNTS[] = 
+{ 
+   451, 622, 731, 741, 751, 761, 771, 781, 791, 801, 811 
+};
+
+
+int main()
+{
+	InitMain();
+    unsigned int testCounter = 0;
+    char dataString[LCD_WIDTH] = {0};
+    ClearDisplay();
+	while(1)
+	{
+		unsigned int temperature = 0;
+		BYTE mode = GetSwitchInput();
+        const char * modeString = GetLCDString(mode);
+        SetCursor(0,0);
+        SendString(modeString);
+		TurnBuzzerOff();
+        unsigned int data = 0;
+		BYTE decPlaces = 0;
+		switch(mode)
+		{
+			case BAC_PCT_RL:
+				decPlaces = 2;
+				data = GetGasCount();
+				data = TempAdjustADC(data);
+                break;
+			case ADC_RAW_GAS_RL:
+				SetResistance(RL);
+                data = GetGasCount();
+                break;
+			case ADC_RAW_GAS_RL1:
+				SetResistance(RL1); // 1K Ohm
+				data = GetGasCount();
+                break;
+			case ADC_RAW_GAS_RL2:
+				SetResistance(RL2); // 5K Ohm
+				data = GetGasCount();
+                break; 
+			case ADC_RAW_GAS_RL3:
+                SetResistance(RL3); // 10K Ohm
+  				data = GetGasCount();
+                break;
+			case ADC_RAW_GAS_RL4:
+				SetResistance(RL4); // 20K Ohm
+				data = GetGasCount();
+                break;
+			case ADC_RAW_GAS_RL5:
+				SetResistance(RL5); // 50K Ohm
+  				data = GetGasCount();
+                break;
+            case TEMP_FAHRENHEIT:
+                data = GetTemp();
+				data = RawADCToFahrenheit(data);
+				decPlaces = 2;
+                break;
+            case TEMP_CELSIUS:
+            	data = GetTemp();;
+				data = RawADCToCelsius(data);
+				decPlaces = 2;
+                break;
+            case ADC_RAW_TEMP:
+                data = GetTemp();;
+                break;
+            case LCD_TEST:
+                testCounter++;
+				data = testCounter;
+                break;
+            case BUZZER_LOW:
+				data = LOW_TONE;
+                PlayTone(LOW_TONE);
+                break;
+            case BUZZER_HIGH:
+				data = HIGH_TONE;
+                PlayTone(HIGH_TONE);
+                break;  
+		}
+		PrintData(data, dataString, decPlaces);
+		__delay_ms(250);
+		data = GetAnalogInput(ALCOHOL_CHANNEL);// Update ADC values
+		AddNewGas(data);
+		data = GetAnalogInput(TEMP_CHANNEL);
+		AddNewTemp(data);						// End update ADC values
+	}
+	//ADC updated every 250 msecs. Interrupts?
+	return 0;
+}

@@ -1,0 +1,77 @@
+/*
+This file implements the methods declared in BreathalizerDipHandler.h.
+*/
+
+#include "BreathalizerDipHandler.h"
+
+/*===================================*/
+#define DIP_SWITCH_MASK 0xFF
+#define DIP_SWITCH_PORT PORTB
+#define DIP_SWITCH_TRIS TRISB
+#define DIP_INPUT_MASK  0x3F    // 0011 1111
+/*===================================*/
+
+const char* GetLCDString(BYTE dipInput)
+{
+    switch(dipInput)
+    {
+        case BAC_PCT_RL:
+            return "BAC Percent RL  ";
+        case ADC_RAW_GAS_RL:
+            return "Alcohol Raw RL  ";
+        case ADC_RAW_GAS_RL1:
+            return "Alcohol Raw RL1 ";
+        case ADC_RAW_GAS_RL2:
+            return "Alcohol Raw RL2 ";
+        case ADC_RAW_GAS_RL3:
+            return "Alcohol Raw RL3 ";
+        case ADC_RAW_GAS_RL4:
+            return "Alcohol Raw RL4 ";
+        case ADC_RAW_GAS_RL5:
+            return "Alcohol Raw RL5 ";
+        case TEMP_FAHRENHEIT:
+            return "Temperature (F) ";
+        case TEMP_CELSIUS:
+            return "Temperature (C) ";
+        case ADC_RAW_TEMP:
+            return "Temperature Raw ";
+        case LCD_TEST:
+            return "LCD Test        ";
+        case BUZZER_LOW:
+            return "Buzzer Low Tone ";
+        case BUZZER_HIGH:
+            return "Buzzer High Tone";
+        default:
+            return "Unimplemented   ";
+    } 
+}
+
+void InitDip(void)
+{
+    DIP_SWITCH_TRIS = DIP_SWITCH_MASK;
+}
+
+BYTE GetSwitchInput(void)
+{
+    return DIP_SWITCH_PORT & DIP_INPUT_MASK;
+}
+
+//#define DIP_MODE_TEST
+#ifdef DIP_MODE_TEST
+
+#include "LCD.h"
+#define _XTAL_FREQ 4000000
+
+int main()
+{
+    while(1)
+    {
+        BYTE dipInput = GetSwitchInput();
+        char* print_text = GetLCDString(dipInput);
+        SendData(print_text);
+        __delay_ms(500);
+        ClearDisplay();
+    }
+}
+
+#endif
