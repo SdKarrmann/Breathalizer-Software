@@ -69,7 +69,7 @@ Return: The temperature measured in units of Fahrenheit.
 signed int RawADCToFahrenheit(unsigned int adcData)
 {
     //return (double)adcData * .48876 - 2;
-    return ((signed long)adcData * 880 + 28400) / 100;
+    return ((signed long)adcData * 880 + 32000) / 100;
 }
 
 /*
@@ -82,7 +82,7 @@ Return: The temperature measured in units of Celcius.
 signed int RawADCToCelsius(unsigned int adcData)
 {
     //return (double)adcData * .87977 + 28.4;
-    return (((signed long)adcData * 489) / 100) - 20;
+    return (((signed long)adcData * 489) / 100);
 }
 
 /*
